@@ -8,7 +8,8 @@
   <title>Brighto Paint Shop - POS & Inventory</title>
   
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -18,13 +19,14 @@
        ========================================================================= -->
   <header class="app-header">
     <div class="brand-section">
-      <img src="icons/icon-192.png" alt="Brighto Paints" class="brand-icon">
+      <img src="icon-192.png" alt="Brighto Paints" class="brand-icon">
       <div class="brand-text">
         <h1>Brighto Paint Shop</h1>
         <span>Colors for Life • Offline POS</span>
       </div>
     </div>
     <div class="header-actions">
+      <button class="btn btn-sm btn-primary" id="installAppHeaderBtn" style="display:none; padding:4px 8px; font-size:11px;" onclick="triggerAppInstall()">📲 Install App</button>
       <span class="offline-badge">⚡ 100% Offline</span>
       <button class="icon-btn" id="themeToggleBtn" title="Toggle Dark/Light Mode">🌙</button>
       <button class="icon-btn" onclick="exportFullBackup()" title="Backup Database to Phone">💾</button>

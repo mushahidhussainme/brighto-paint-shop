@@ -1713,3 +1713,39 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.error('App initialization error:', err);
   }
 });
+
+// =============================================================================
+// 11. Native PWA Install Prompt Handler
+// =============================================================================
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  const installBtn = document.getElementById('installAppHeaderBtn');
+  if (installBtn) {
+    installBtn.style.display = 'inline-flex';
+  }
+});
+
+function triggerAppInstall() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') {
+        console.log('[PWA] User accepted installation');
+        const installBtn = document.getElementById('installAppHeaderBtn');
+        if (installBtn) installBtn.style.display = 'none';
+      }
+      deferredInstallPrompt = null;
+    });
+  } else {
+    alert('To install on your phone:\nTap the 3 dots menu in Chrome -> Tap "Add to Home screen" or "Install app".');
+  }
+}
+
+window.addEventListener('appinstalled', () => {
+  console.log('[PWA] Installed successfully!');
+  const installBtn = document.getElementById('installAppHeaderBtn');
+  if (installBtn) installBtn.style.display = 'none';
+});
+
