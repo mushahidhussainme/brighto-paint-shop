@@ -1,0 +1,25 @@
+{
+  "name": "Brighto Paint Shop - Inventory & Billing",
+  "short_name": "Brighto Paint",
+  "description": "Complete Offline Inventory, POS Billing & Company Ledger App for Brighto Paints Shop",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0d47a1",
+  "theme_color": "#0d47a1",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity", "finance"]
+}

@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0d47a1">
+  <meta name="description" content="Offline Inventory, POS Billing & Company Ledger App for Brighto Paints Shop">
+  <title>Brighto Paint Shop - POS & Inventory</title>
+  
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- =========================================================================
+       1. Top Header Bar
+       ========================================================================= -->
+  <header class="app-header">
+    <div class="brand-section">
+      <img src="icons/icon-192.png" alt="Brighto Paints" class="brand-icon">
+      <div class="brand-text">
+        <h1>Brighto Paint Shop</h1>
+        <span>Colors for Life • Offline POS</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="offline-badge">⚡ 100% Offline</span>
+      <button class="icon-btn" id="themeToggleBtn" title="Toggle Dark/Light Mode">🌙</button>
+      <button class="icon-btn" onclick="exportFullBackup()" title="Backup Database to Phone">💾</button>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       2. Screen 1: Point of Sale (POS) Billing
+       ========================================================================= -->
+  <main id="screen-pos" class="screen active">
+    <!-- Category Filter Chips -->
+    <div class="chip-container">
+      <button class="chip active" data-cat="ALL">All Products</button>
+      <button class="chip" data-cat="Interior Emulsions">Interior Emulsions</button>
+      <button class="chip" data-cat="Exterior Coatings">Exterior Coatings</button>
+      <button class="chip" data-cat="Enamels & Gloss">Enamels & Gloss</button>
+      <button class="chip" data-cat="Surface Prep & Primers">Primers & Sealers</button>
+      <button class="chip" data-cat="Putty & Fillers">Putty & Fillers</button>
+      <button class="chip" data-cat="Thinners & Solvents">Thinners</button>
+      <button class="chip" data-cat="Colorants & Stainers">Stainers</button>
+    </div>
+
+    <!-- POS Layout: Search & Catalog Grid + Cart -->
+    <div class="pos-layout">
+      <!-- Catalog Column -->
+      <div>
+        <div class="card" style="padding: 8px 12px; margin-bottom: 10px;">
+          <input type="text" id="posSearchInput" class="input-field" placeholder="🔍 Search by paint name, shade (e.g. Ash White), or size...">
+        </div>
+        <div class="product-grid" id="posProductGrid">
+          <!-- Dynamically populated products -->
+        </div>
+      </div>
+
+      <!-- Cart Column -->
+      <div class="cart-card card">
+        <div class="card-title">
+          <span>🛒 Current Bill (<span id="cartItemCount">0</span> items)</span>
+          <button class="btn btn-sm btn-outline" onclick="clearCart()" style="color:var(--danger);">Clear</button>
+        </div>
+
+        <div class="cart-items-list" id="cartItemsList">
+          <!-- Dynamically populated cart items -->
+        </div>
+
+        <div class="cart-summary">
+          <div class="summary-line">
+            <span>Subtotal:</span>
+            <span id="cartSubtotal" style="font-weight:700;">Rs. 0</span>
+          </div>
+          <div class="summary-line" style="align-items:center;">
+            <span>Discount (Rs):</span>
+            <input type="number" id="cartDiscountInput" class="input-field" style="width: 100px; padding: 4px 8px; text-align:right;" value="0" min="0">
+          </div>
+          <div class="summary-line total">
+            <span>Total Payable:</span>
+            <span id="cartGrandTotal" style="color:var(--primary);">Rs. 0</span>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-block" style="margin-top:12px; font-size:15px; padding:12px;" onclick="openCheckoutModal()">
+          Proceed to Checkout ➔
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- =========================================================================
+       3. Screen 2: Inventory & Stock Control
+       ========================================================================= -->
+  <main id="screen-inventory" class="screen">
+    <!-- Inventory KPI Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-label">Total SKUs</span>
+        <span class="stat-value" id="invTotalItemsCount">0</span>
+        <span class="stat-sub">Active Paint Lines</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Stock Value (Cost)</span>
+        <span class="stat-value" id="invTotalCostVal" style="font-size:15px;">Rs. 0</span>
+        <span class="stat-sub">Wholesale Capital</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Stock Value (Retail)</span>
+        <span class="stat-value" id="invTotalRetailVal" style="font-size:15px;">Rs. 0</span>
+        <span class="stat-sub">Potential Revenue</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Low Stock Alerts</span>
+        <span class="stat-value" id="invLowStockCount" style="color:var(--danger);">0</span>
+        <span class="stat-sub">Below Reorder Level</span>
+      </div>
+    </div>
+
+    <!-- Inventory Filter & Action Bar -->
+    <div class="card">
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:12px;">
+        <input type="text" id="invSearchInput" class="input-field" style="flex:1; min-width:180px;" placeholder="Search inventory...">
+        <select id="invFilterSelect" class="input-field" style="width:auto;">
+          <option value="ALL">All Items</option>
+          <option value="LOW">Low Stock Alerts</option>
+          <option value="OUT">Out of Stock</option>
+        </select>
+        <button class="btn btn-primary" onclick="openAddProductModal()">+ Add Custom Paint</button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Product Line</th>
+              <th>Shade</th>
+              <th>Packaging</th>
+              <th>Cost (PKR)</th>
+              <th>Retail (PKR)</th>
+              <th>In Stock</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="inventoryTableBody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- =========================================================================
+       4. Screen 3: Brighto Company Orders & Payables
+       ========================================================================= -->
+  <main id="screen-company" class="screen">
+    <!-- Company Profile & Net Payable Card -->
+    <div class="card" style="border-left: 4px solid var(--primary);">
+      <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+        <div>
+          <h2 style="font-size:18px; color:var(--primary); font-weight:800;" id="companyNameDisplay">Brighto Paints Ltd</h2>
+          <p style="color:var(--text-muted); font-size:12px;">Depot Sales Rep: <span id="companyRepDisplay" style="color:var(--text-main); font-weight:600;">-</span></p>
+          <p style="color:var(--text-muted); font-size:12px;">Contact: <span id="companyPhoneDisplay" style="color:var(--text-main); font-weight:600;">-</span></p>
+          <p style="color:var(--text-muted); font-size:12px;">Bank A/C: <span id="companyBankDisplay" style="color:var(--text-main); font-weight:600;">-</span></p>
+        </div>
+        <div style="text-align:right;">
+          <span style="font-size:11px; color:var(--text-muted); font-weight:700;">CURRENT BALANCE OWED TO BRIGHTO:</span>
+          <div style="font-size:22px; font-weight:900; color:var(--danger);" id="companyNetPayableDisplay">Rs. 0</div>
+          <div style="margin-top:8px; display:flex; gap:6px; justify-content:flex-end;">
+            <button class="btn btn-sm btn-secondary" onclick="openCompanyPaymentModal()">💳 Record Payment to Company</button>
+            <button class="btn btn-sm btn-primary" onclick="openCreatePOModal()">📦 Place Stock Order</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Figures -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-label">Total Invoiced Goods</span>
+        <span class="stat-value" id="companyTotalPurchasesDisplay" style="font-size:16px;">Rs. 0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Total Paid to Company</span>
+        <span class="stat-value" id="companyTotalPaidDisplay" style="font-size:16px; color:var(--success);">Rs. 0</span>
+      </div>
+    </div>
+
+    <!-- Stock Orders Table -->
+    <div class="card">
+      <div class="card-title">Stock Purchase Orders (Orders Placed to Brighto)</div>
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>PO #</th>
+              <th>Date</th>
+              <th>Items</th>
+              <th>Total Cost</th>
+              <th>Status</th>
+              <th>Receive Inward</th>
+            </tr>
+          </thead>
+          <tbody id="companyOrdersTableBody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Payments Made to Brighto Table -->
+    <div class="card">
+      <div class="card-title">Payments Log (Paid to Brighto Paints)</div>
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Amount Paid</th>
+              <th>Payment Method</th>
+              <th>Bank Ref #</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="companyPaymentsTableBody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- =========================================================================
+       5. Screen 4: Customer Khata Ledger (Receivables)
+       ========================================================================= -->
+  <main id="screen-khata" class="screen">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-label">Total Customer Udhaar</span>
+        <span class="stat-value" id="khataTotalReceivableDisplay" style="color:var(--warning);">Rs. 0</span>
+        <span class="stat-sub">Accounts Receivable</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Painters & Contractors with Due</span>
+        <span class="stat-value" id="khataTotalDebtorsDisplay">0</span>
+        <span class="stat-sub">Pending accounts</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+        <input type="text" id="khataSearchInput" class="input-field" style="flex:1; min-width:180px;" placeholder="Search customer by name or phone...">
+        <button class="btn btn-primary" onclick="openAddCustomerModal()">+ Add New Customer</button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Customer Name</th>
+              <th>Current Due</th>
+              <th>Credit Limit</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="khataTableBody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- =========================================================================
+       6. Screen 5: Daybook & Financial Reports
+       ========================================================================= -->
+  <main id="screen-reports" class="screen">
+    <!-- Daybook Summary -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-label">Today's Cash IN</span>
+        <span class="stat-value" id="reportTodayCashIn" style="color:var(--success);">Rs. 0</span>
+        <span class="stat-sub">Sales + Khata Collections</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Today's Cash OUT</span>
+        <span class="stat-value" id="reportTodayCashOut" style="color:var(--danger);">Rs. 0</span>
+        <span class="stat-sub">Supplier + Expenses</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Net Cash in Drawer</span>
+        <span class="stat-value" id="reportTodayNetCash" style="color:var(--primary);">Rs. 0</span>
+        <span class="stat-sub">Today's Cash Balance</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Estimated Gross Profit</span>
+        <span class="stat-value" id="reportGrossProfit" style="font-size:16px;">Rs. 0</span>
+        <span class="stat-sub">Margin: <span id="reportProfitMargin">0%</span></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div class="card-title" style="margin:0;">Today's Cash Register (Roznamcha)</div>
+        <button class="btn btn-sm btn-outline" onclick="openAddExpenseModal()">- Add Shop Expense</button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Flow</th>
+              <th>Category</th>
+              <th>Amount</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody id="daybookTableBody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- =========================================================================
+       7. Screen 6: Settings & Backup Screen
+       ========================================================================= -->
+  <main id="screen-settings" class="screen">
+    <div class="card">
+      <div class="card-title">Shop Profile (Printed on Invoices)</div>
+      <div class="form-row">
+        <div class="input-group">
+          <label class="input-label">Shop Name</label>
+          <input type="text" id="settingShopName" class="input-field">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Brighto Dealer #</label>
+          <input type="text" id="settingDealerNo" class="input-field">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="input-group">
+          <label class="input-label">Contact Phone(s)</label>
+          <input type="text" id="settingShopPhone" class="input-field">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Shop Address</label>
+          <input type="text" id="settingShopAddress" class="input-field">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="saveShopProfile()">Save Shop Settings</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Backup & Restore (100% Offline Portability)</div>
+      <p style="color:var(--text-muted); font-size:12px; margin-bottom:12px;">
+        Export your complete shop database (inventory, stock, bills, customer debts, and company ledger) to a single JSON backup file on your phone.
+      </p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="exportFullBackup()">📥 Export Full Backup to Phone</button>
+        <button class="btn btn-outline" onclick="triggerRestoreFileInput()">📤 Restore Database from File</button>
+        <input type="file" id="restoreFileInput" style="display:none;" accept=".json" onchange="handleRestoreFile(event)">
+      </div>
+    </div>
+  </main>
+
+  <!-- =========================================================================
+       8. Bottom Navigation Bar
+       ========================================================================= -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-target="screen-pos">
+      <span class="nav-icon">🛒</span>
+      <span>Billing</span>
+    </button>
+    <button class="nav-item" data-target="screen-inventory">
+      <span class="nav-icon">📦</span>
+      <span>Inventory</span>
+    </button>
+    <button class="nav-item" data-target="screen-company">
+      <span class="nav-icon">🏢</span>
+      <span>Brighto</span>
+    </button>
+    <button class="nav-item" data-target="screen-khata">
+      <span class="nav-icon">📒</span>
+      <span>Khata</span>
+    </button>
+    <button class="nav-item" data-target="screen-reports">
+      <span class="nav-icon">📊</span>
+      <span>Daybook</span>
+    </button>
+    <button class="nav-item" data-target="screen-settings">
+      <span class="nav-icon">⚙️</span>
+      <span>Settings</span>
+    </button>
+  </nav>
+
+  <!-- =========================================================================
+       9. Modal Dialogs
+       ========================================================================= -->
+
+  <!-- Modal: POS Checkout -->
+  <div class="modal-overlay" id="checkoutModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Finalize Sale</h3>
+        <button class="icon-btn" onclick="closeCheckoutModal()">✕</button>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label">Customer / Contractor</label>
+        <select id="checkoutCustomerSelect" class="input-field">
+          <!-- Dynamically populated -->
+        </select>
+      </div>
+
+      <div style="background:var(--bg-input); padding:12px; border-radius:var(--radius-md); margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+          <span>Net Total Payable:</span>
+          <strong id="checkoutGrandTotalDisplay" style="font-size:16px; color:var(--primary);">Rs. 0</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between;">
+          <span id="checkoutBalanceLabel">Return Change:</span>
+          <strong id="checkoutBalanceDisplay" style="font-size:15px; color:var(--success);">Rs. 0</strong>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="input-group">
+          <label class="input-label">Amount Paid (PKR)</label>
+          <input type="number" id="checkoutPaidInput" class="input-field" min="0">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Payment Mode</label>
+          <select id="checkoutPaymentModeSelect" class="input-field">
+            <option value="CASH">Cash</option>
+            <option value="BANK_TRANSFER">Bank / Raast</option>
+            <option value="EASYPAISA">EasyPaisa / JazzCash</option>
+            <option value="CHEQUE">Cheque</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <button class="btn btn-outline" style="flex:1;" onclick="closeCheckoutModal()">Cancel</button>
+        <button class="btn btn-primary" style="flex:2;" onclick="finalizeSale()">Complete & Print Invoice</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Receipt Preview & Printing -->
+  <div class="modal-overlay" id="receiptModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Invoice Receipt</h3>
+        <button class="icon-btn" onclick="closeReceiptModal()">✕</button>
+      </div>
+
+      <div id="receiptPreviewContainer">
+        <!-- Thermal Receipt Format Inserted Dynamically -->
+      </div>
+
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <button class="btn btn-outline" style="flex:1;" onclick="closeReceiptModal()">Close</button>
+        <button class="btn btn-success" id="whatsappReceiptBtn" style="flex:1.5;">📱 WhatsApp</button>
+        <button class="btn btn-primary" id="printReceiptBtn" style="flex:1.5;">🖨️ Print Receipt</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add Custom Product -->
+  <div class="modal-overlay" id="addProductModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Add New Product / Custom Shade</h3>
+        <button class="icon-btn" onclick="closeAddProductModal()">✕</button>
+      </div>
+      <div class="form-row">
+        <div class="input-group">
+          <label class="input-label">Item Code / Barcode</label>
+          <input type="text" id="newProdCode" class="input-field">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Category</label>
+          <select id="newProdCategory" class="input-field">
+            <option value="Interior Emulsions">Interior Emulsions</option>
+            <option value="Exterior Coatings">Exterior Coatings</option>
+            <option value="Enamels & Gloss">Enamels & Gloss</option>
+            <option value="Surface Prep & Primers">Surface Prep & Primers</option>
+            <option value="Putty & Fillers">Putty & Fillers</option>
+            <option value="Thinners & Solvents">Thinners & Solvents</option>
+            <option value="Colorants & Stainers">Colorants & Stainers</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="input-group">
+          <label class="input-label">Product Line Name</label>
+          <input type="text" id="newProdName" class="input-field" placeholder="e.g. Brighto Special Finish">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Shade Name / Code</label>
+          <input type="text" id="newProdShade" class="input-field" placeholder="e.g. Olive Green">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="input-group">
+          <label class="input-label">Packaging Pack Size</label>
+          <select id="newProdPack" class="input-field">
+            <option value="0.25 L">0.25 L (Quarter Small)</option>
+            <option value="0.91 L (Quarter)">0.91 L (Quarter)</option>
+            <option value="3.64 L (Gallon)" selected>3.64 L (Gallon)</option>
+            <option value="14.56 L (Drum)">14.56 L (Drum)</option>
+            <option value="5 Kg (Bag)">5 Kg (Bag)</option>
+            <option value="20 Kg (Drum)">20 Kg (Drum)</option>
+            <option value="1 Liter">1 Liter</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Initial Stock Count</label>
+          <input type="number" id="newProdStock" class="input-field" value="10">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="input-group">
+          <label class="input-label">Wholesale Cost (PKR)</label>
+          <input type="number" id="newProdCost" class="input-field" placeholder="Cost to you">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Retail Selling Price (PKR)</label>
+          <input type="number" id="newProdPrice" class="input-field" placeholder="Sale price">
+        </div>
+      </div>
+      <div class="input-group">
+        <label class="input-label">Reorder Alert Threshold</label>
+        <input type="number" id="newProdReorder" class="input-field" value="5">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="saveNewProduct()">Save to Inventory</button>
+    </div>
+  </div>
+
+  <!-- Modal: Adjust Stock (Damage/Audit) -->
+  <div class="modal-overlay" id="stockAdjustModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Adjust Stock</h3>
+        <button class="icon-btn" onclick="closeStockAdjustModal()">✕</button>
+      </div>
+      <p id="adjustProdTitle" style="font-weight:700; margin-bottom:8px;"></p>
+      <div style="background:var(--bg-input); padding:8px 12px; border-radius:var(--radius-md); margin-bottom:12px;">
+        Current Stock Available: <strong id="adjustCurrentStockDisplay">0</strong>
+      </div>
+      <div class="form-row">
+        <div class="input-group">
+          <label class="input-label">Adjustment Type</label>
+          <select id="adjustActionSelect" class="input-field">
+            <option value="SUBTRACT">Deduct (Damage, Leak, Spill, Loss)</option>
+            <option value="ADD">Add (Audit Correction, Return to Stock)</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Quantity</label>
+          <input type="number" id="adjustQtyInput" class="input-field" value="1" min="1">
+        </div>
+      </div>
+      <div class="input-group">
+        <label class="input-label">Reason / Log Note</label>
+        <input type="text" id="adjustReasonInput" class="input-field" value="Damage / Dented Can">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="finalizeStockAdjust()">Apply Adjustment</button>
+    </div>
+  </div>
+
+  <!-- Modal: Edit Product -->
+  <div class="modal-overlay" id="editProductModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Edit Product Details</h3>
+        <button class="icon-btn" onclick="closeEditProductModal()">✕</button>
+      </div>
+      <div class="input-group">
+        <label class="input-label">Product Name</label>
+        <input type="text" id="editProdName" class="input-field">
+      </div>
+      <div class="form-row">
+        <div class="input-group">
+          <label class="input-label">Shade</label>
+          <input type="text" id="editProdShade" class="input-field">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Pack</label>
+          <input type="text" id="editProdPack" class="input-field">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="input-group">
+          <label class="input-label">Cost Price (PKR)</label>
+          <input type="number" id="editProdCost" class="input-field">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Retail Price (PKR)</label>
+          <input type="number" id="editProdPrice" class="input-field">
+        </div>
+      </div>
+      <div class="input-group">
+        <label class="input-label">Reorder Level Alert</label>
+        <input type="number" id="editProdReorder" class="input-field">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="saveEditProduct()">Update Product</button>
+    </div>
+  </div>
+
+  <!-- Modal: Create Company Purchase Order -->
+  <div class="modal-overlay" id="createPOModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Place Stock Order to Brighto Paints</h3>
+        <button class="icon-btn" onclick="closeCreatePOModal()">✕</button>
+      </div>
+      <div class="input-group">
+        <label class="input-label">Order Reference #</label>
+        <input type="text" id="poOrderNo" class="input-field">
+      </div>
+      <div class="form-row" style="align-items:flex-end;">
+        <div class="input-group" style="flex:2;">
+          <label class="input-label">Select Paint Product</label>
+          <select id="poProductSelect" class="input-field"></select>
+        </div>
+        <div class="input-group" style="flex:1;">
+          <label class="input-label">Qty (Units)</label>
+          <input type="number" id="poItemQtyInput" class="input-field" value="10" min="1">
+        </div>
+        <div style="margin-bottom:12px;">
+          <button class="btn btn-primary" onclick="addProductToPODraft()">+ Add</button>
+        </div>
+      </div>
+
+      <div style="margin-top:10px;">
+        <label class="input-label">Order Items:</label>
+        <div id="poDraftItemsList" style="max-height:160px; overflow-y:auto; background:var(--bg-input); padding:8px; border-radius:var(--radius-md);"></div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin:12px 0;">
+        <span style="font-weight:700;">Total Purchase Cost:</span>
+        <strong id="poDraftTotalDisplay" style="font-size:16px; color:var(--primary);">Rs. 0</strong>
+      </div>
+
+      <button class="btn btn-primary btn-block" onclick="saveCompanyPO()">Submit Order to Records</button>
+    </div>
+  </div>
+
+  <!-- Modal: Record Payment to Brighto Paints -->
+  <div class="modal-overlay" id="companyPaymentModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Record Payment to Brighto Paints</h3>
+        <button class="icon-btn" onclick="closeCompanyPaymentModal()">✕</button>
+      </div>
+      <div class="input-group">
+        <label class="input-label">Payment Amount (PKR)</label>
+        <input type="number" id="compPayAmount" class="input-field" placeholder="e.g. 50000">
+      </div>
+      <div class="form-row">
+        <div class="input-group">
+          <label class="input-label">Payment Method</label>
+          <select id="compPayMethod" class="input-field">
+            <option value="BANK_TRANSFER">Bank Online Transfer / Raast</option>
+            <option value="CHEQUE">Bank Cheque</option>
+            <option value="PAY_ORDER">Pay Order</option>
+            <option value="CASH">Cash Deposit to Depot</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Bank Reference / Slip #</label>
+          <input type="text" id="compPayRef" class="input-field" placeholder="e.g. HBL-98124">
+        </div>
+      </div>
+      <div class="input-group">
+        <label class="input-label">Notes</label>
+        <input type="text" id="compPayNotes" class="input-field" value="Stock payment to depot">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="saveCompanyPayment()">Save Payment Record</button>
+    </div>
+  </div>
+
+  <!-- Modal: Add New Customer -->
+  <div class="modal-overlay" id="addCustomerModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Add Customer / Painter Account</h3>
+        <button class="icon-btn" onclick="closeAddCustomerModal()">✕</button>
+      </div>
+      <div class="input-group">
+        <label class="input-label">Customer / Contractor Name</label>
+        <input type="text" id="newCustName" class="input-field" placeholder="e.g. Master Akram Painter">
+      </div>
+      <div class="form-row">
+        <div class="input-group">
+          <label class="input-label">Phone (WhatsApp)</label>
+          <input type="text" id="newCustPhone" class="input-field" placeholder="0300-1234567">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Customer Type</label>
+          <select id="newCustType" class="input-field">
+            <option value="PAINTER">Master Painter</option>
+            <option value="CONTRACTOR">Building Contractor</option>
+            <option value="RETAIL">Home Owner / Retail</option>
+          </select>
+        </div>
+      </div>
+      <div class="input-group">
+        <label class="input-label">Credit Limit (PKR)</label>
+        <input type="number" id="newCustLimit" class="input-field" value="50000">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="saveNewCustomer()">Save Customer Account</button>
+    </div>
+  </div>
+
+  <!-- Modal: Collect Payment from Customer (Khata) -->
+  <div class="modal-overlay" id="collectPaymentModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Collect Khata Payment</h3>
+        <button class="icon-btn" onclick="closeCollectPaymentModal()">✕</button>
+      </div>
+      <div style="background:var(--bg-input); padding:10px; border-radius:var(--radius-md); margin-bottom:12px;">
+        Customer: <strong id="collectCustName">-</strong><br>
+        Current Outstanding Due: <strong id="collectCustBalance" style="color:var(--warning); font-size:16px;">Rs. 0</strong>
+      </div>
+      <div class="form-row">
+        <div class="input-group">
+          <label class="input-label">Amount Received (PKR)</label>
+          <input type="number" id="collectAmountInput" class="input-field" min="1">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Payment Mode</label>
+          <select id="collectModeSelect" class="input-field">
+            <option value="CASH">Cash</option>
+            <option value="BANK_TRANSFER">Bank / Raast</option>
+            <option value="EASYPAISA">EasyPaisa / JazzCash</option>
+            <option value="CHEQUE">Cheque</option>
+          </select>
+        </div>
+      </div>
+      <div class="input-group">
+        <label class="input-label">Note / Receipt Reference</label>
+        <input type="text" id="collectNoteInput" class="input-field" placeholder="e.g. Partial recovery for Bahria job">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="finalizeKhataPayment()">Confirm Payment Receipt</button>
+    </div>
+  </div>
+
+  <!-- Modal: Customer Statement -->
+  <div class="modal-overlay" id="customerStatementModal">
+    <div class="modal-content" style="max-width:600px;">
+      <div class="modal-header">
+        <h3>Customer Statement of Account</h3>
+        <button class="icon-btn" onclick="closeCustomerStatementModal()">✕</button>
+      </div>
+      <div id="statementContainer">
+        <!-- Dynamically populated -->
+      </div>
+      <button class="btn btn-outline btn-block" style="margin-top:12px;" onclick="closeCustomerStatementModal()">Close Statement</button>
+    </div>
+  </div>
+
+  <!-- Modal: Add Expense -->
+  <div class="modal-overlay" id="addExpenseModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Record Daily Shop Expense</h3>
+        <button class="icon-btn" onclick="closeAddExpenseModal()">✕</button>
+      </div>
+      <div class="form-row">
+        <div class="input-group">
+          <label class="input-label">Expense Amount (PKR)</label>
+          <input type="number" id="expenseAmount" class="input-field" placeholder="e.g. 500">
+        </div>
+        <div class="input-group">
+          <label class="input-label">Category</label>
+          <select id="expenseCategory" class="input-field">
+            <option value="TEA_SNACKS">Tea & Refreshments</option>
+            <option value="LABOR">Labor & Unloading</option>
+            <option value="ELECTRICITY">Electricity / Utilities</option>
+            <option value="TRANSPORT">Delivery / Fuel</option>
+            <option value="SHOP_MAINT">Shop Maintenance</option>
+          </select>
+        </div>
+      </div>
+      <div class="input-group">
+        <label class="input-label">Notes</label>
+        <input type="text" id="expenseNotes" class="input-field" placeholder="Details of expense">
+      </div>
+      <button class="btn btn-primary btn-block" onclick="saveManualExpense()">Save Expense</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
